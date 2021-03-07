@@ -1,14 +1,14 @@
-#!/bin/sh
+#!/bin/bash
 
 set -eo pipefail
 
-NAME=php-workspace
+NAME="php-workspace-${PWD##*/}"
 IMAGE=php:8.0.2-cli
 
 # ensure CTRL+D and other signals are properly handled
 trap "" SIGINT SIGTERM ERR EXIT
 
-if [ ! "$(ps aux | grep docker | grep -v grep)" ]; then
+if [ "$(pgrep -x docker > /dev/null)" ]; then
   echo "[E] Docker daemon is not running!"
 
   exit
