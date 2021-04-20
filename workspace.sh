@@ -27,6 +27,8 @@ if [ ! "$(docker ps -aq -f name=${NAME})" ]; then
     --tty \
     "${IMAGE}" bash
 
+  echo "[I] Stopping workspace"
+
   exit
 fi
 
