@@ -3,7 +3,7 @@
 set -o pipefail
 
 NAME="php-workspace-${PWD##*/}"
-IMAGE=php:8.0.2-cli
+IMAGE=php:8.0.3-cli
 
 # ensure CTRL+D and other signals are properly handled
 trap "" SIGINT SIGTERM ERR EXIT
