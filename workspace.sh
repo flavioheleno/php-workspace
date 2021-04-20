@@ -16,6 +16,7 @@ if [ $? -eq 7 ]; then
   exit
 fi
 
+# there is no container with $NAME, so create a new one
 if [ ! "$(docker ps -aq -f name=${NAME})" ]; then
   echo "[I] Creating a new php workspace"
   docker run \
@@ -29,6 +30,7 @@ if [ ! "$(docker ps -aq -f name=${NAME})" ]; then
   exit
 fi
 
+# start container
 if [ "$(docker ps -aq -f status=created -f status=exited -f name=${NAME})" ]; then
   echo "[I] Starting workspace"
   if [ "$(docker start ${NAME})" != "${NAME}" ]; then
@@ -45,6 +47,7 @@ if [ "$(docker ps -aq -f status=exited -f name=${NAME})" ]; then
   exit
 fi
 
+# check if there are any open sessions left so that the container can be stopped
 if [ "$(docker exec ${NAME} bash -c 'ls /proc/ | grep -E "[0-9]+" | wc -l')" -eq 5 ]; then
   echo "[I] Stopping workspace"
   if [ "$(docker stop ${NAME})" != "${NAME}" ]; then
