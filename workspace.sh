@@ -50,7 +50,7 @@ if [ "$(docker ps -aq -f status=exited -f name=${NAME})" ]; then
 fi
 
 # check if there are any open sessions left so that the container can be stopped
-if [ "$(docker exec ${NAME} bash -c 'ls /proc/ | grep -E "[0-9]+" | wc -l')" -eq 5 ]; then
+if [ "$(docker exec ${NAME} bash -c 'find /proc -mindepth 2 -maxdepth 2 -name exe -exec ls -lh {} \; 2>/dev/null | grep bash | wc -l')" -eq 2 ]; then
   echo "[I] Stopping workspace"
   if [ "$(docker stop ${NAME})" != "${NAME}" ]; then
     echo "[W] Failed to stop workspace!"
