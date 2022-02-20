@@ -1,58 +1,79 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -o pipefail
+# https://sipb.mit.edu/doc/safe-shell/
+set -eufo pipefail
 
-NAME="php-workspace-${PWD##*/}"
-IMAGE=php:8.0.3-cli
+shopt -s failglob
+
+CONTAINER="php-workspace-${PWD##*/}"
+NETWORK="${PWD##*/}-network"
+IMAGE=php:8.1.3-cli-alpine3.15
 
 # ensure CTRL+D and other signals are properly handled
 trap "" SIGINT SIGTERM ERR EXIT
 
+cd "$(dirname "$0")"
+
 # ping docker daemon
-curl -s --unix-socket /var/run/docker.sock http://ping > /dev/null 2&>1
+curl -s --unix-socket /var/run/docker.sock http://ping > /dev/null
 if [ $? -eq 7 ]; then
   echo "[E] Docker daemon is not running!"
 
   exit
 fi
 
-# there is no container with $NAME, so create a new one
-if [ ! "$(docker ps -aq -f name=${NAME})" ]; then
-  echo "[I] Creating a new php workspace"
-  docker run \
-    --volume $(pwd):/usr/src/workspace \
-    --workdir /usr/src/workspace \
-    --name "${NAME}" \
-    --interactive \
-    --tty \
-    "${IMAGE}" bash
-
-  echo "[I] Stopping workspace"
-
-  exit
-fi
-
-# start container
-if [ "$(docker ps -aq -f status=created -f status=exited -f name=${NAME})" ]; then
-  echo "[I] Starting workspace"
-  if [ "$(docker start ${NAME})" != "${NAME}" ]; then
-    echo "[E] Failed to start workspace!"
+# there is no network with name $NETWORK, so create a new one
+if [ -z "$(docker network ls --filter name="${NETWORK}" --quiet)" ]; then
+  echo "[I] Creating network"
+  if [ -z "$(docker network create "${NETWORK}")" ]; then
+    echo "[E] Failed to create network"
 
     exit
   fi
 fi
 
-echo "[I] Attaching to workspace"
-docker exec --tty --interactive "${NAME}" bash
+# there is no container with name $CONTAINER, so create a new one
+if [ -z "$(docker ps --all --quiet --filter name="${CONTAINER}")" ]; then
+  echo "[I] Creating container"
+  docker run \
+    --interactive \
+    --tty \
+    --volume "$(PWD)":/usr/src/workspace \
+    --network "${NETWORK}" \
+    --workdir /usr/src/workspace \
+    --name "${CONTAINER}" \
+    "${IMAGE}" \
+    sh
 
-if [ "$(docker ps -aq -f status=exited -f name=${NAME})" ]; then
+  echo "[I] Stopping container"
+
   exit
 fi
 
-# check if there are any open sessions left so that the container can be stopped
-if [ "$(docker exec ${NAME} bash -c 'find /proc -mindepth 2 -maxdepth 2 -name exe -exec ls -lh {} \; 2>/dev/null | grep bash | wc -l')" -eq 2 ]; then
-  echo "[I] Stopping workspace"
-  if [ "$(docker stop ${NAME})" != "${NAME}" ]; then
-    echo "[W] Failed to stop workspace!"
+# start a stopped container
+if [ "$(docker ps --all --quiet --filter status=created --filter status=exited --filter name="${CONTAINER}")" ]; then
+  echo "[I] Starting container"
+  if [ "$(docker start "${CONTAINER}")" != "${CONTAINER}" ]; then
+    echo "[E] Failed to start container"
+
+    exit
+  fi
+fi
+
+echo "[I] Attaching to container"
+docker exec \
+  --tty \
+  --interactive \
+  "${CONTAINER}" \
+  sh
+
+if [ "$(docker ps --all --quiet --filter status=exited --filter name="${CONTAINER}")" ]; then
+  exit
+fi
+
+if [ "$(docker container inspect --format='{{ .ExecIDs }}' "${CONTAINER}")" == "[]" ]; then
+  echo "[I] Stopping container"
+  if [ "$(docker stop "${CONTAINER}")" != "${CONTAINER}" ]; then
+    echo "[E] Failed to stop container"
   fi
 fi
